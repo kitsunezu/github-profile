@@ -1,163 +1,87 @@
-import React, { useContext, useEffect, useState, useCallback } from "react";
-import axios from "axios";
-import { NavLink } from "react-router-dom";
-import { userContext } from "../App";
-
-const Language = (props) => {
-  const [data, setData] = useState([]);
-  const languages_url = props.languages_url;
-
-  const handleRequest = useCallback(async () => {
-    try {
-      const response = await axios.get(languages_url);
-      return setData(response.data);
-    } catch (err) {
-      console.error(err.message);
-    }
-  }, [languages_url]);
-
-  useEffect(() => {
-    handleRequest();
-  }, [handleRequest]);
-
-  let languages = Object.keys(data);
-  let total_count = Object.values(data).reduce((a, b) => a + b, 0);
-
-  return (
-    <div className="mt-2 mb-2">
-      Languages:{" "}
-      {languages.length
-        ? languages.map((language, index) => (
-            <div className="inline bg-gray-400  rounded-xl p-1 m-1" key={index}>
-              {`${language}: ${
-                Math.trunc((data[language] / total_count) * 1000) / 10
-              }% `}
-            </div>
-          ))
-        : "code yet to be deployed."}
-    </div>
-  );
-};
+﻿import React from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import useGitHubUser from "../hooks/useGitHubUser";
+import useGitHubRepos from "../hooks/useGitHubRepos";
+import UserCard from "../components/UserCard";
+import RepoCard from "../components/RepoCard";
+import { UserCardSkeleton, RepoCardSkeleton } from "../components/SkeletonLoader";
+import ErrorMessage from "../components/ErrorMessage";
 
 const Profile = () => {
-  const { userInfo, setUserInfo } = useContext(userContext);
-  const [repos, setRepos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isShown, setIsShown] = useState([]);
-  useEffect(() => {
-    // const numberOfPages =
-    //   userInfo.public_repos / 100 > 0 ? Math.ceil(userInfo.public_repos) : null;
-    const fetchData = async () => {
-      try {
-        const { data } = await axios.get(`${userInfo.repos_url}?&per_page=50`);
-        setRepos(data);
-        setLoading(false);
-      } catch (err) {
-        console.log(err.response);
-      }
-    };
-    fetchData();
-  }, []);
+  const { paramsName } = useParams();
+  const navigate = useNavigate();
 
-  const handleShown = (repo) => {
-    isShown.includes(repo)
-      ? setIsShown([...isShown])
-      : setIsShown([repo, ...isShown]);
-  };
+  const { data: user, loading: userLoading, error: userError } =
+    useGitHubUser(paramsName);
+  const { data: repos, loading: reposLoading, totalStars } =
+    useGitHubRepos(paramsName);
+
   return (
-    <>
-      <NavLink to="/">
-        <div
-          className="float-right w-18 h-18 text-4xl text-skin-base cursor-pointer flex items-center justify-center bg-skin-button-day rounded-full hover:bg-skin-button-day-hover p-3"
-          onClick={() => {
-            setUserInfo(null);
-          }}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 px-4 py-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Back button */}
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
         >
-          ←
-        </div>
-      </NavLink>
-      <div className="flex flex-col items-center justify-center font-sans m-3">
-        <div className="md:flex bg-gray-800 rounded-xl p-6 shadow-2xl max-w-2xl">
-          <div className="flex min-w-fit items-center justify-center">
-            <a href={userInfo.html_url}>
-              <img
-                className="h-36 w-36 rounded-full border-4 bg-skin-button-border"
-                src={userInfo.avatar_url}
-                alt={userInfo.login}
-              />
-            </a>
-          </div>
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+          Back to search
+        </button>
 
-          <div className="text-left">
-            <div className="ml-4">
-              <a
-                href={userInfo.html_url}
-                className="text-2xl font-bold text-skin-light"
-              >
-                {userInfo.login}
-              </a>
-              <div className="text-skin-info">
-                Latest Push :
-                {new Date(
-                  Math.max(...repos.map((e) => new Date(e.pushed_at)))
-                ).toLocaleString()}
-              </div>
-            </div>
-            {loading ? (
-              <div className="border border-blue-300 shadow rounded-md p-4 max-w-sm w-full mx-auto">
-                <div className="animate-pulse flex space-x-4">
-                  <div className="rounded-full bg-slate-700 h-10 w-10"></div>
-                  <div className="flex-1 space-y-6 py-1">
-                    <div className="h-2 bg-slate-700 rounded"></div>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="h-2 bg-slate-700 rounded col-span-2"></div>
-                        <div className="h-2 bg-slate-700 rounded col-span-1"></div>
-                      </div>
-                      <div className="h-2 bg-slate-700 rounded"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              repos.map((repo) => {
-                if (!repo.fork) {
-                  return (
-                    <div
-                      key={repo.id}
-                      className="bg-skin-button-night inline-block px-2 py-1 mx-2 mb-2 decoration-0 rounded-xl hover:bg-skin-button-night-hover relative flex-col items-center group"
-                      onMouseEnter={() => handleShown(repo.name)}
-                    >
-                      <a href={repo.html_url}>
-                        <div>{repo.name}</div>
-                      </a>
+        {/* User card */}
+        {userLoading && <UserCardSkeleton />}
+        {userError && <ErrorMessage error={userError} />}
+        {user && (
+          <UserCard
+            user={user}
+            totalStars={totalStars}
+            repoCount={repos ? repos.length : user.public_repos}
+          />
+        )}
 
-                      {isShown.includes(repo.name) && (
-                        <div className="absolute bottom-0 flex-col items-center hidden mb-6 group-hover:flex">
-                          <div className="rounded mb-5 relative z-10 p-4 text-sm leading-none text-white whitespace-nowrap bg-skin-button-night-hover shadow-lg">
-                            {repo.description && (
-                              <div className="font-medium text-base">
-                                {repo.description}
-                              </div>
-                            )}
-                            <Language languages_url={repo.languages_url} />
-                            <div>{`Updated on ${new Date(
-                              repo.pushed_at
-                            ).toLocaleString()}`}</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                } else {
-                  return null;
-                }
-              })
-            )}
+        {/* Repos section */}
+        {user && (
+          <div>
+            <h2 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-3">
+              Repositories{" "}
+              <span className="text-gray-400 dark:text-gray-500 font-normal">
+                ({repos ? repos.length : "..."})
+              </span>
+            </h2>
+
+            {reposLoading ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[...Array(6)].map((_, i) => (
+                  <RepoCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : repos && repos.length > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {repos.map((repo) => (
+                  <RepoCard key={repo.id} repo={repo} />
+                ))}
+              </div>
+            ) : repos && repos.length === 0 ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500 py-10 text-center">
+                No public repositories found.
+              </p>
+            ) : null}
           </div>
-        </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
 
